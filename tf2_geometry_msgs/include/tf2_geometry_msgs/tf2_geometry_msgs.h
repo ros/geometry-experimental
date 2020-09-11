@@ -41,6 +41,7 @@
 #include <geometry_msgs/Vector3Stamped.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovariance.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/Wrench.h>
 #include <geometry_msgs/WrenchStamped.h>
@@ -525,6 +526,32 @@ void fromMsg(const geometry_msgs::PoseStamped& msg, tf2::Stamped<tf2::Transform>
   out.setData(tmp);
 }
 
+/************************/
+/** PoseWithCovariance **/
+/************************/
+
+/** \brief Trivial "conversion" function for PoseWithCovariance message type.
+ * This function is a specialization of the toMsg template defined in tf2/convert.h.
+ * \param in A PoseWithCovariance message.
+ * \return The input argument.
+ */
+inline
+geometry_msgs::PoseWithCovariance toMsg(const geometry_msgs::PoseWithCovariance& in)
+{
+  return in;
+}
+
+/** \brief Trivial "conversion" function for PoseWithCovariance message type.
+ * This function is a specialization of the toMsg template defined in tf2/convert.h.
+ * \param msg A PoseWithCovariance message.
+ * \param out The input argument.
+ */
+inline
+void fromMsg(const geometry_msgs::PoseWithCovariance& msg, geometry_msgs::PoseWithCovariance& out)
+{
+  out = msg;
+}
+
 /*******************************/
 /** PoseWithCovarianceStamped **/
 /*******************************/
@@ -902,6 +929,29 @@ geometry_msgs::PoseWithCovariance::_covariance_type transformCovariance(const ge
   return output;
 }
 
+/** \brief Apply a geometry_msgs TransformStamped to an geometry_msgs PoseWithCovariance type.
+* This function is a specialization of the doTransform template defined in tf2/convert.h.
+* \param t_in The pose to transform, as a PoseWithCovariance message.
+* \param t_out The transformed pose, as a PoseWithCovariance message.
+* \param transform The timestamped transform to apply, as a TransformStamped message.
+*/
+template <>
+inline
+void doTransform(const geometry_msgs::PoseWithCovariance& t_in, geometry_msgs::PoseWithCovariance& t_out, const geometry_msgs::TransformStamped& transform)
+{
+  tf2::Vector3 v;
+  fromMsg(t_in.pose.position, v);
+  tf2::Quaternion r;
+  fromMsg(t_in.pose.orientation, r);
+
+  tf2::Transform t;
+  fromMsg(transform.transform, t);
+  tf2::Transform v_out = t * tf2::Transform(r, v);
+  toMsg(v_out, t_out.pose);
+
+  t_out.covariance = transformCovariance(t_in.covariance, t);
+}
+
 /** \brief Apply a geometry_msgs TransformStamped to an geometry_msgs PoseWithCovarianceStamped type.
 * This function is a specialization of the doTransform template defined in tf2/convert.h.
 * \param t_in The pose to transform, as a timestamped PoseWithCovarianceStamped message.
@@ -912,19 +962,9 @@ template <>
 inline
 void doTransform(const geometry_msgs::PoseWithCovarianceStamped& t_in, geometry_msgs::PoseWithCovarianceStamped& t_out, const geometry_msgs::TransformStamped& transform)
 {
-  tf2::Vector3 v;
-  fromMsg(t_in.pose.pose.position, v);
-  tf2::Quaternion r;
-  fromMsg(t_in.pose.pose.orientation, r);
-
-  tf2::Transform t;
-  fromMsg(transform.transform, t);
-  tf2::Transform v_out = t * tf2::Transform(r, v);
-  toMsg(v_out, t_out.pose.pose);
+  doTransform(t_in.pose, t_out.pose, transform);
   t_out.header.stamp = transform.header.stamp;
   t_out.header.frame_id = transform.header.frame_id;
-
-  t_out.pose.covariance = transformCovariance(t_in.pose.covariance, t);
 }
 
 /** \brief Apply a geometry_msgs TransformStamped to an geometry_msgs Transform type.
